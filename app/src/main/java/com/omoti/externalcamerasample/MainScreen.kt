@@ -4,6 +4,7 @@ import android.app.Activity.RESULT_OK
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Environment
 import android.provider.MediaStore
@@ -39,13 +40,15 @@ fun MainScreen() {
     val context = LocalContext.current
 
     var bitmap by remember { mutableStateOf<Bitmap?>(null) }
-    var imageUri by remember { mutableStateOf<Uri?>(null) }
+    var imagePath by remember { mutableStateOf<String?>(null) }
 
     val launcher =
         rememberLauncherForActivityResult(contract = ActivityResultContracts.StartActivityForResult(),
             onResult = { result ->
                 if (result.resultCode == RESULT_OK) {
-                    // TODO: 保存したファイルからBitmap取得
+                    imagePath?.let {
+                        bitmap = BitmapFactory.decodeFile(it)
+                    }
                 }
             })
 
@@ -58,8 +61,9 @@ fun MainScreen() {
                 .padding(paddingValues = paddingValues),
         ) {
             Button(onClick = {
-                imageUri = createImageFileUri(context)?.also {
-                    launchCameraApp(context = context, launcher, it)
+                createImageFile(context)?.also {
+                    launchCameraApp(context = context, launcher, getContentUri(context, it))
+                    imagePath = it.absolutePath
                 }
             }) {
                 Text(text = "Launch Camera App")
@@ -91,21 +95,21 @@ private fun launchCameraApp(context: Context, launcher: ActivityResultLauncher<I
 /**
  * 保存先ファイルを用意
  */
-private fun createImageFileUri(context: Context): Uri? {
-    val file = try {
-        val storageDir: File? = context.getExternalFilesDir(Environment.DIRECTORY_PICTURES)
-        File.createTempFile("temp", ".jpg", storageDir)
-    } catch (e: IOException) {
-        return null
-    }
-
-    // 共有可能なcontent URIを取得
-    return FileProvider.getUriForFile(
-        context,
-        "com.omoti.externalcamerasample.fileprovider", // AndroidManifestのProvider名と一致
-        file
-    )
+private fun createImageFile(context: Context): File? = try {
+    val storageDir: File? = context.getExternalFilesDir(Environment.DIRECTORY_PICTURES)
+    File.createTempFile("temp", ".jpg", storageDir)
+} catch (e: IOException) {
+    null
 }
+
+/**
+ * 共有可能なcontent URIを取得
+ */
+private fun getContentUri(context: Context, file: File) = FileProvider.getUriForFile(
+    context,
+    "com.omoti.externalcamerasample.fileprovider", // AndroidManifestのProvider名と一致
+    file
+)
 
 @Preview
 @Composable
